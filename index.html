@@ -7,8 +7,8 @@
   <!-- Leaflet CSS -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
   <style>
-    body { font-family: Arial, sans-serif; margin: 0; padding: 0; }
-    .container { display: flex; }
+    body, html { margin: 0; padding: 0; height: 100%; }
+    .container { display: flex; height: 100%; }
     .left-panel { flex: 1; display: flex; flex-direction: column; }
     #map { flex: 1; }
     .controls { padding: 1rem; background: #f9f9f9; display: flex; gap: 1rem; flex-wrap: wrap; }
@@ -42,15 +42,11 @@
         </div>
       </div>
 
-      <div style="padding: 0 1rem;">
+      <div style="padding: 0 1rem; max-height: 200px; overflow-y: auto;">
         <strong>Liste des clients</strong>
         <table id="clientsTable">
           <thead>
-            <tr>
-              <th>Client</th>
-              <th>Départements</th>
-              <th>Actions</th>
-            </tr>
+            <tr><th>Client</th><th>Départements</th><th>Actions</th></tr>
           </thead>
           <tbody></tbody>
         </table>
@@ -62,9 +58,7 @@
     <div class="sidebar">
       <h2>Nb clients par département</h2>
       <table id="sidebarTable" class="sidebar-table">
-        <thead>
-          <tr><th>Code</th><th>Nom</th><th>Nb</th></tr>
-        </thead>
+        <thead><tr><th>Code</th><th>Nom</th><th>Nb</th></tr></thead>
         <tbody></tbody>
       </table>
     </div>
@@ -149,6 +143,10 @@
               });
             }
           }).addTo(map);
+
+          // Initial render
+          renderSidebar();
+          updateMap();
         });
 
       function getClients(code) {
