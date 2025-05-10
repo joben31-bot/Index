@@ -65,4 +65,99 @@
         {"code":"38","nom":"Isère"},{"code":"39","nom":"Jura"},{"code":"40","nom":"Landes"},
         {"code":"41","nom":"Loir-et-Cher"},{"code":"42","nom":"Loire"},{"code":"43","nom":"Haute-Loire"},
         {"code":"44","nom":"Loire-Atlantique"},{"code":"45","nom":"Loiret"},{"code":"46","nom":"Lot"},
-        {"code
+        {"code":"47","nom":"Lot-et-Garonne"},{"code":"48","nom":"Lozère"},{"code":"49","nom":"Maine-et-Loire"},
+        {"code":"50","nom":"Manche"},{"code":"51","nom":"Marne"},{"code":"52","nom":"Haute-Marne"},
+        {"code":"53","nom":"Mayenne"},{"code":"54","nom":"Meurthe-et-Moselle"},{"code":"55","nom":"Meuse"},
+        {"code":"56","nom":"Morbihan"},{"code":"57","nom":"Moselle"},{"code":"58","nom":"Nièvre"},
+        {"code":"59","nom":"Nord"},{"code":"60","nom":"Oise"},{"code":"61","nom":"Orne"},
+        {"code":"62","nom":"Pas-de-Calais"},{"code":"63","nom":"Puy-de-Dôme"},{"code":"64","nom":"Pyrénées-Atlantiques"},
+        {"code":"65","nom":"Hautes-Pyrénées"},{"code":"66","nom":"Pyrénées-Orientales"},{"code":"67","nom":"Bas-Rhin"},
+        {"code":"68","nom":"Haut-Rhin"},{"code":"69","nom":"Rhône"},{"code":"70","nom":"Haute-Saône"},
+        {"code":"71","nom":"Saône-et-Loire"},{"code":"72","nom":"Sarthe"},{"code":"73","nom":"Savoie"},
+        {"code":"74","nom":"Haute-Savoie"},{"code":"75","nom":"Paris"},{"code":"76","nom":"Seine-Maritime"},
+        {"code":"77","nom":"Seine-et-Marne"},{"code":"78","nom":"Yvelines"},{"code":"79","nom":"Deux-Sèvres"},
+        {"code":"80","nom":"Somme"},{"code":"81","nom":"Tarn"},{"code":"82","nom":"Tarn-et-Garonne"},
+        {"code":"83","nom":"Var"},{"code":"84","nom":"Vaucluse"},{"code":"85","nom":"Vendée"},
+        {"code":"86","nom":"Vienne"},{"code":"87","nom":"Haute-Vienne"},{"code":"88","nom":"Vosges"},
+        {"code":"89","nom":"Yonne"},{"code":"90","nom":"Territoire de Belfort"},{"code":"91","nom":"Essonne"},
+        {"code":"92","nom":"Hauts-de-Seine"},{"code":"93","nom":"Seine-Saint-Denis"},
+        {"code":"94","nom":"Val-de-Marne"},{"code":"95","nom":"Val-d'Oise"}
+      ];
+
+      // Peuple le select
+      const sel = document.getElementById('departmentsSelect');
+      departmentsList.forEach(d => {
+        const opt = document.createElement('option');
+        opt.value = d.code;
+        opt.text = `${d.code} – ${d.nom}`;
+        sel.add(opt);
+      });
+
+      // Init carte
+      const map = L.map('map').setView([46.7, 2.5], 6);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap contributors'
+      }).addTo(map);
+
+      let geojsonLayer, clients = [];
+      fetch('https://france-geojson.gregoiredavid.fr/repo/departements.geojson')
+        .then(r => r.json())
+        .then(data => {
+          geojsonLayer = L.geoJson(data, {
+            style: f => ({
+              fillColor: getColor(getClients(f.properties.code).length),
+              weight: 1, color: 'gray', fillOpacity: 0.7
+            }),
+            onEachFeature: (f, layer) => {
+              layer.bindTooltip('').on({
+                mouseover: e => e.target.openTooltip(),
+                mouseout:  e => e.target.closeTooltip()
+              });
+            }
+          }).addTo(map);
+        });
+
+      function getClients(code) {
+        return clients.filter(c => c.departments.includes(code)).map(c => c.name);
+      }
+      function getColor(n) {
+        return n === 1 ? 'green'
+             : n === 2 ? 'blue'
+             : n === 3 ? 'orange'
+             : n === 4 ? 'yellow'
+             : 'white';
+      }
+      function updateMap() {
+        if (!geojsonLayer) return;
+        geojsonLayer.eachLayer(layer => {
+          const code = layer.feature.properties.code;
+          const list = getClients(code);
+          layer.setStyle({ fillColor: getColor(list.length) });
+          layer.setTooltipContent(list.length ? list.join(', ') : 'Aucun client');
+        });
+      }
+      function renderTable() {
+        const tbody = document.querySelector('#clientsTable tbody');
+        tbody.innerHTML = '';
+        clients.forEach(c => {
+          const tr = document.createElement('tr');
+          tr.innerHTML = `<td>${c.name}</td><td>${c.departments.join(', ')}</td>`;
+          tbody.appendChild(tr);
+        });
+      }
+
+      // Bouton Ajouter
+      document.getElementById('addClient').onclick = () => {
+        const name = document.getElementById('clientName').value.trim();
+        const deps = Array.from(sel.selectedOptions).map(o => o.value);
+        if (!name || !deps.length) return alert('Nom et départements requis');
+        clients.push({ name, departments: deps });
+        document.getElementById('clientName').value = '';
+        sel.selectedIndex = -1;
+        renderTable();
+        updateMap();
+      };
+    });
+  </script>
+</body>
+</html>
