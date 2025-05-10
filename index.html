@@ -8,67 +8,116 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
   <style>
     body { font-family: Arial, sans-serif; margin: 0; padding: 0; }
-    #map { height: 60vh; width: 100%; }
+    .container { display: flex; }
+    .left-panel { flex: 1; display: flex; flex-direction: column; }
+    #map { flex: 1; }
     .controls { padding: 1rem; background: #f9f9f9; display: flex; gap: 1rem; flex-wrap: wrap; }
     .controls > div { display: flex; flex-direction: column; gap: 0.5rem; }
     button { padding: 0.5rem 1rem; }
-    #clientsTable { border-collapse: collapse; width: 100%; margin-top: 0.5rem; }
+    #clientsTable { border-collapse: collapse; width: 100%; margin: 0.5rem 0; }
     #clientsTable th, #clientsTable td { border: 1px solid #ccc; padding: 0.5rem; text-align: left; }
     #clientsTable th { background: #eee; }
     .action-btn { margin-right: 0.5rem; }
+    .sidebar { width: 300px; border-left: 1px solid #ccc; padding: 1rem; overflow-y: auto; }
+    .sidebar h2 { margin-top: 0; }
+    .sidebar-table { width: 100%; border-collapse: collapse; }
+    .sidebar-table th, .sidebar-table td { border: 1px solid #ccc; padding: 0.25rem 0.5rem; text-align: left; }
+    .sidebar-table th { background: #f0f0f0; }
   </style>
 </head>
 <body>
-  <div class="controls">
-    <div>
-      <label for="clientName"><strong>Nom du client</strong></label>
-      <input type="text" id="clientName" placeholder="Ex. Client Dupont" />
+  <div class="container">
+    <div class="left-panel">
+      <div class="controls">
+        <div>
+          <label for="clientName"><strong>Nom du client</strong></label>
+          <input type="text" id="clientName" placeholder="Ex. Client Dupont" />
+        </div>
+        <div>
+          <label for="departmentsSelect"><strong>Départements</strong> (Ctrl+clic pour multi)</label>
+          <select id="departmentsSelect" multiple size="6" style="min-width:200px;"></select>
+        </div>
+        <div style="align-self:flex-end;">
+          <button id="addClient">Ajouter client</button>
+        </div>
+      </div>
+
+      <div style="padding: 0 1rem;">
+        <strong>Liste des clients</strong>
+        <table id="clientsTable">
+          <thead>
+            <tr>
+              <th>Client</th>
+              <th>Départements</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+
+      <div id="map"></div>
     </div>
-    <div>
-      <label for="departmentsSelect"><strong>Départements</strong> (Ctrl+clic pour multi)</label>
-      <select id="departmentsSelect" multiple size="6" style="min-width:200px;"></select>
-    </div>
-    <div style="align-self:flex-end;">
-      <button id="addClient">Ajouter client</button>
+
+    <div class="sidebar">
+      <h2>Nb clients par département</h2>
+      <table id="sidebarTable" class="sidebar-table">
+        <thead>
+          <tr><th>Code</th><th>Nom</th><th>Nb</th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
     </div>
   </div>
-
-  <div style="padding: 0 1rem;">
-    <strong>Liste des clients</strong>
-    <table id="clientsTable">
-      <thead>
-        <tr>
-          <th>Client</th>
-          <th>Départements</th>
-          <th>Actions</th>
-        </tr>
-      </thead>
-      <tbody></tbody>
-    </table>
-  </div>
-
-  <div id="map"></div>
 
   <!-- Leaflet JS -->
   <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
   <script>
     document.addEventListener('DOMContentLoaded', () => {
-      // Liste des départements
       const departmentsList = [
-        /* ... les 96 départements comme précédemment ... */
+        {"code":"01","nom":"Ain"},{"code":"02","nom":"Aisne"},{"code":"03","nom":"Allier"},
+        {"code":"04","nom":"Alpes-de-Haute-Provence"},{"code":"05","nom":"Hautes-Alpes"},
+        {"code":"06","nom":"Alpes-Maritimes"},{"code":"07","nom":"Ardèche"},{"code":"08","nom":"Ardennes"},
+        {"code":"09","nom":"Ariège"},{"code":"10","nom":"Aube"},{"code":"11","nom":"Aude"},
+        {"code":"12","nom":"Aveyron"},{"code":"13","nom":"Bouches-du-Rhône"},{"code":"14","nom":"Calvados"},
+        {"code":"15","nom":"Cantal"},{"code":"16","nom":"Charente"},{"code":"17","nom":"Charente-Maritime"},
+        {"code":"18","nom":"Cher"},{"code":"19","nom":"Corrèze"},{"code":"2A","nom":"Corse-du-Sud"},
+        {"code":"2B","nom":"Haute-Corse"},{"code":"21","nom":"Côte-d'Or"},{"code":"22","nom":"Côtes-d'Armor"},
+        {"code":"23","nom":"Creuse"},{"code":"24","nom":"Dordogne"},{"code":"25","nom":"Doubs"},
+        {"code":"26","nom":"Drôme"},{"code":"27","nom":"Eure"},{"code":"28","nom":"Eure-et-Loir"},
+        {"code":"29","nom":"Finistère"},{"code":"30","nom":"Gard"},{"code":"31","nom":"Haute-Garonne"},
+        {"code":"32","nom":"Gers"},{"code":"33","nom":"Gironde"},{"code":"34","nom":"Hérault"},
+        {"code":"35","nom":"Ille-et-Vilaine"},{"code":"36","nom":"Indre"},{"code":"37","nom":"Indre-et-Loire"},
+        {"code":"38","nom":"Isère"},{"code":"39","nom":"Jura"},{"code":"40","nom":"Landes"},
+        {"code":"41","nom":"Loir-et-Cher"},{"code":"42","nom":"Loire"},{"code":"43","nom":"Haute-Loire"},
+        {"code":"44","nom":"Loire-Atlantique"},{"code":"45","nom":"Loiret"},{"code":"46","nom":"Lot"},
+        {"code":"47","nom":"Lot-et-Garonne"},{"code":"48","nom":"Lozère"},{"code":"49","nom":"Maine-et-Loire"},
+        {"code":"50","nom":"Manche"},{"code":"51","nom":"Marne"},{"code":"52","nom":"Haute-Marne"},
+        {"code":"53","nom":"Mayenne"},{"code":"54","nom":"Meurthe-et-Moselle"},{"code":"55","nom":"Meuse"},
+        {"code":"56","nom":"Morbihan"},{"code":"57","nom":"Moselle"},{"code":"58","nom":"Nièvre"},
+        {"code":"59","nom":"Nord"},{"code":"60","nom":"Oise"},{"code":"61","nom":"Orne"},
+        {"code":"62","nom":"Pas-de-Calais"},{"code":"63","nom":"Puy-de-Dôme"},{"code":"64","nom":"Pyrénées-Atlantiques"},
+        {"code":"65","nom":"Hautes-Pyrénées"},{"code":"66","nom":"Pyrénées-Orientales"},{"code":"67","nom":"Bas-Rhin"},
+        {"code":"68","nom":"Haut-Rhin"},{"code":"69","nom":"Rhône"},{"code":"70","nom":"Haute-Saône"},
+        {"code":"71","nom":"Saône-et-Loire"},{"code":"72","nom":"Sarthe"},{"code":"73","nom":"Savoie"},
+        {"code":"74","nom":"Haute-Savoie"},{"code":"75","nom":"Paris"},{"code":"76","nom":"Seine-Maritime"},
+        {"code":"77","nom":"Seine-et-Marne"},{"code":"78","nom":"Yvelines"},{"code":"79","nom":"Deux-Sèvres"},
+        {"code":"80","nom":"Somme"},{"code":"81","nom":"Tarn"},{"code":"82","nom":"Tarn-et-Garonne"},
+        {"code":"83","nom":"Var"},{"code":"84","nom":"Vaucluse"},{"code":"85","nom":"Vendée"},
+        {"code":"86","nom":"Vienne"},{"code":"87","nom":"Haute-Vienne"},{"code":"88","nom":"Vosges"},
+        {"code":"89","nom":"Yonne"},{"code":"90","nom":"Territoire de Belfort"},{"code":"91","nom":"Essonne"},
+        {"code":"92","nom":"Hauts-de-Seine"},{"code":"93","nom":"Seine-Saint-Denis"},
+        {"code":"94","nom":"Val-de-Marne"},{"code":"95","nom":"Val-d'Oise"}
       ];
-
-      // Variables de state
-      let clients = [];
-      let editingIndex = -1; // -1 = pas en édition
 
       // DOM refs
       const sel = document.getElementById('departmentsSelect');
       const nameInput = document.getElementById('clientName');
       const addBtn = document.getElementById('addClient');
       const tbody = document.querySelector('#clientsTable tbody');
+      const sidebarTbody = document.querySelector('#sidebarTable tbody');
 
-      // Peuple le select
+      // Peuple multiselect
       departmentsList.forEach(d => {
         const opt = document.createElement('option');
         opt.value = d.code;
@@ -81,39 +130,39 @@
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '© OpenStreetMap contributors'
       }).addTo(map);
+
       let geojsonLayer = null;
+      let clients = [];
+      let editingIndex = -1;
+
       fetch('https://france-geojson.gregoiredavid.fr/repo/departements.geojson')
-        .then(r => r.json())
-        .then(data => {
+        .then(r => r.json()).then(data => {
           geojsonLayer = L.geoJson(data, {
-            style: styleFeature,
-            onEachFeature: onEachFeature
+            style: f => ({
+              fillColor: getColor(getClients(f.properties.code).length),
+              weight: 1, color: 'gray', fillOpacity: 0.7
+            }),
+            onEachFeature: (f, layer) => {
+              layer.bindTooltip('').on({
+                mouseover: e => e.target.openTooltip(),
+                mouseout:  e => e.target.closeTooltip()
+              });
+            }
           }).addTo(map);
         });
 
-      function styleFeature(f) {
-        const count = clients.filter(c=>c.departments.includes(f.properties.code)).length;
-        return {
-          fillColor: getColor(count),
-          weight: 1,
-          color: 'gray',
-          fillOpacity: 0.7
-        };
-      }
-      function onEachFeature(f, layer) {
-        layer.bindTooltip('').on({
-          mouseover: e => e.target.openTooltip(),
-          mouseout:  e => e.target.closeTooltip()
-        });
+      function getClients(code) {
+        return clients.filter(c => c.departments.includes(code)).map(c => c.name);
       }
       function getColor(n) {
         return n===1?'green':n===2?'blue':n===3?'orange':n===4?'yellow':'white';
       }
+
       function updateMap() {
         if (!geojsonLayer) return;
         geojsonLayer.eachLayer(layer => {
           const code = layer.feature.properties.code;
-          const list = clients.filter(c=>c.departments.includes(code)).map(c=>c.name);
+          const list = getClients(code);
           layer.setStyle({ fillColor: getColor(list.length) });
           layer.setTooltipContent(list.length ? list.join(', ') : 'Aucun client');
         });
@@ -134,42 +183,51 @@
         });
       }
 
-      // Ajout / Sauvegarde
+      function renderSidebar() {
+        sidebarTbody.innerHTML = '';
+        departmentsList.forEach(d => {
+          const count = getClients(d.code).length;
+          const tr = document.createElement('tr');
+          tr.innerHTML = `<td>${d.code}</td><td>${d.nom}</td><td>${count}</td>`;
+          sidebarTbody.appendChild(tr);
+        });
+      }
+
       addBtn.onclick = () => {
         const name = nameInput.value.trim();
-        const deps = Array.from(sel.selectedOptions).map(o=>o.value);
+        const deps = Array.from(sel.selectedOptions).map(o => o.value);
         if (!name || !deps.length) return alert('Nom et départements requis');
 
         if (editingIndex >= 0) {
-          // Sauvegarde édition
           clients[editingIndex] = { name, departments: deps };
           addBtn.textContent = 'Ajouter client';
           editingIndex = -1;
         } else {
-          // Nouveau client
           clients.push({ name, departments: deps });
         }
         nameInput.value = '';
         sel.selectedIndex = -1;
         renderTable();
         updateMap();
+        renderSidebar();
       };
 
-      // Fonctions globales pour les boutons (doivent être accessibles globalement)
       window.deleteClient = i => {
         clients.splice(i, 1);
         if (editingIndex === i) {
           editingIndex = -1;
-          nameInput.value = ''; sel.selectedIndex = -1;
+          nameInput.value = '';
+          sel.selectedIndex = -1;
           addBtn.textContent = 'Ajouter client';
         }
         renderTable();
         updateMap();
+        renderSidebar();
       };
+
       window.editClient = i => {
         const c = clients[i];
         nameInput.value = c.name;
-        // Sélectionne les options correspondantes
         Array.from(sel.options).forEach(opt => {
           opt.selected = c.departments.includes(opt.value);
         });
