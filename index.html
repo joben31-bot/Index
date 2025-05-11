@@ -1,9 +1,11 @@
+```html
 <!DOCTYPE html>
 <html lang="fr">
 <head>
   <meta charset="UTF-8" />
   <title>Carte interactive des clients</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
   <!-- Leaflet CSS -->
   <link
     rel="stylesheet"
@@ -11,6 +13,7 @@
     integrity="sha512-xodZBNTC5n17Xt2atTPuE1HxjVMSvLVW9ocqUKLsCC5CXdbqCmblAshOMAS6/keqq/sMZMZ19scR4PsZChSR7A=="
     crossorigin=""
   />
+
   <style>
     body, html { margin: 0; padding: 0; height: 100%; }
     .container { display: flex; height: 100%; }
@@ -41,6 +44,7 @@
 
   <script>
     console.log("App start: Firebase & Leaflet loaded");
+
     // Configuration Firebase (remplace par tes valeurs)
     const firebaseConfig = {
       apiKey: "AIzaSyBOa5KcgBr7PkQKT6e_ftWORjbGzncY4Ck",
@@ -51,6 +55,7 @@
       appId: "1:243276469711:web:1aea9eba2a33e1c8026eba",
       measurementId: "G-BM1YRHR193"
     };
+
     // Initialisation Firebase
     firebase.initializeApp(firebaseConfig);
     const db = firebase.firestore();
@@ -75,9 +80,9 @@
           <input type="text" id="clientName" placeholder="Ex. Client Dupont" />
         </div>
         <div>
-          <label for="departmentsSelect"
-            ><strong>Départements</strong><br />(Ctrl+clic pour multi)</label
-          >
+          <label for="departmentsSelect">
+            <strong>Départements</strong><br>(Ctrl+clic pour multi)
+          </label>
           <select id="departmentsSelect" multiple size="6" style="min-width:200px;"></select>
         </div>
         <div class="buttons" style="align-self:flex-end;">
@@ -96,7 +101,6 @@
         </thead>
         <tbody></tbody>
       </table>
-
       <h2>Nb clients par département</h2>
       <table id="sidebarCountsTable" class="sidebar-table">
         <thead>
@@ -155,7 +159,7 @@
       const tbodyCl   = document.querySelector('#sidebarClientsTable tbody');
       const tbodyCnt  = document.querySelector('#sidebarCountsTable tbody');
 
-      // Remplissage du <select>
+      // Populate <select>
       departmentsList.forEach(d => {
         const opt = document.createElement('option');
         opt.value = d.code;
@@ -163,28 +167,28 @@
         sel.add(opt);
       });
 
-      // Initialisation de la carte
+      // Initialize Leaflet map
       const map = L.map('map').setView([46.7, 2.5], 6);
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '© OpenStreetMap contributors'
       }).addTo(map);
 
-      let clients    = [];
-      let editingId  = null;
+      let clients = [];
+      let editingId = null;
       let geojsonLayer;
 
-      // Chargement des clients Firestore
+      // Load from Firestore
       async function loadClients() {
         const snapshot = await db.collection('clients').get();
         clients = snapshot.docs.map(doc => ({
-          id:         doc.id,
-          name:       doc.data().name,
-          departments:doc.data().departments || []
+          id: doc.id,
+          name: doc.data().name,
+          departments: doc.data().departments || []
         }));
         renderAll();
       }
 
-      // Création / mise à jour Firestore
+      // Create / Update in Firestore
       async function saveClient(record) {
         if (editingId) {
           await db.collection('clients').doc(editingId).set(record);
@@ -196,13 +200,13 @@
         await loadClients();
       }
 
-      // Suppression Firestore
+      // Delete in Firestore
       async function removeClient(id) {
         await db.collection('clients').doc(id).delete();
         await loadClients();
       }
 
-      // Helpers UI
+      // Helpers
       function getClients(code) {
         return clients.filter(c => c.departments.includes(code)).map(c => c.name);
       }
@@ -214,6 +218,7 @@
              : 'white';
       }
 
+      // Update map with colors & tooltips
       function updateMap() {
         if (!geojsonLayer) return;
         geojsonLayer.eachLayer(layer => {
@@ -221,12 +226,15 @@
           const list = getClients(code);
           layer.setStyle({ fillColor: getColor(list.length) });
           layer.unbindTooltip();
-          if (list.length === 0) {
+          if (list.length > 0) {
+            layer.bindTooltip(list.join(', '), { sticky: true });
+          } else {
             layer.bindTooltip(`${code} – ${nom}`, { sticky: true });
           }
         });
       }
 
+      // Render sidebar clients table
       function renderSidebarClients() {
         tbodyCl.innerHTML = '';
         clients.forEach(c => {
@@ -242,6 +250,7 @@
         });
       }
 
+      // Render sidebar counts table
       function renderSidebarCounts() {
         tbodyCnt.innerHTML = '';
         departmentsList.forEach(d => {
@@ -252,13 +261,14 @@
         });
       }
 
+      // Render both sidebar and map
       function renderAll() {
         renderSidebarClients();
         renderSidebarCounts();
         updateMap();
       }
 
-      // Chargement GeoJSON + clients
+      // Load GeoJSON then clients
       fetch('https://france-geojson.gregoiredavid.fr/repo/departements.geojson')
         .then(r => r.json())
         .then(data => {
@@ -268,7 +278,7 @@
           loadClients();
         });
 
-      // Handlers
+      // Button handlers
       addBtn.onclick = () => {
         const name = nameInput.value.trim();
         const deps = Array.from(sel.selectedOptions).map(o => o.value);
@@ -280,9 +290,9 @@
 
       exportBtn.onclick = () => {
         const header = ['Nom du client','Départements'].join(';');
-        const rows = clients.map(c => [c.name,c.departments.join(',')].join(';'));
-        const csv = [header,...rows].join('\n');
-        const blob = new Blob([csv],{type:'text/csv'});
+        const rows = clients.map(c => [c.name, c.departments.join(',')].join(';'));
+        const csv = [header, ...rows].join('\n');
+        const blob = new Blob([csv], { type:'text/csv' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
@@ -291,11 +301,14 @@
         URL.revokeObjectURL(url);
       };
 
-      window.deleteClient = async id   => removeClient(id);
-      window.editClient   = async id    => {
-        const c = clients.find(x=>x.id===id);
+      // Expose for sidebar buttons
+      window.deleteClient = async id => removeClient(id);
+      window.editClient   = id => {
+        const c = clients.find(x => x.id === id);
         nameInput.value = c.name;
-        Array.from(sel.options).forEach(o => o.selected = c.departments.includes(o.value));
+        Array.from(sel.options).forEach(o => {
+          o.selected = c.departments.includes(o.value);
+        });
         addBtn.textContent = 'Sauvegarder';
         editingId = id;
       };
@@ -303,3 +316,4 @@
   </script>
 </body>
 </html>
+```
