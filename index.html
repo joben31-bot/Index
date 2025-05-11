@@ -21,6 +21,8 @@
     #map { flex: 1; }
     .controls { padding: 1rem; background: #f9f9f9; display: flex; gap: 1rem; flex-wrap: wrap; }
     .controls > div { display: flex; flex-direction: column; gap: 0.5rem; }
+    .checkbox-list { max-height: 200px; overflow-y: auto; border: 1px solid #ccc; padding: 0.5rem; }
+    .checkbox-list label { display: block; font-size: 0.9rem; }
     .controls .buttons { display: flex; gap: 0.5rem; }
     button { padding: 0.5rem 1rem; }
     .sidebar { width: 350px; border-left: 1px solid #ccc; padding: 1rem; overflow-y: auto; }
@@ -55,7 +57,6 @@
       appId: "1:243276469711:web:1aea9eba2a33e1c8026eba",
       measurementId: "G-BM1YRHR193"
     };
-
     // Initialisation Firebase
     firebase.initializeApp(firebaseConfig);
     const db = firebase.firestore();
@@ -80,10 +81,8 @@
           <input type="text" id="clientName" placeholder="Ex. Client Dupont" />
         </div>
         <div>
-          <label for="departmentsSelect">
-            <strong>Départements</strong><br>(Ctrl+clic pour multi)
-          </label>
-          <select id="departmentsSelect" multiple size="6" style="min-width:200px;"></select>
+          <strong>Départements</strong>
+          <div id="departmentsCheckboxes" class="checkbox-list"></div>
         </div>
         <div class="buttons" style="align-self:flex-end;">
           <button id="addClient">Ajouter client</button>
@@ -152,22 +151,26 @@
         {"code":"94","nom":"Val-de-Marne"},{"code":"95","nom":"Val-d'Oise"}
       ];
 
-      const sel       = document.getElementById('departmentsSelect');
+      const checkboxContainer = document.getElementById('departmentsCheckboxes');
       const nameInput = document.getElementById('clientName');
       const addBtn    = document.getElementById('addClient');
       const exportBtn = document.getElementById('exportCsv');
       const tbodyCl   = document.querySelector('#sidebarClientsTable tbody');
       const tbodyCnt  = document.querySelector('#sidebarCountsTable tbody');
 
-      // Populate <select>
+      // Populate checkboxes
       departmentsList.forEach(d => {
-        const opt = document.createElement('option');
-        opt.value = d.code;
-        opt.text  = `${d.code} – ${d.nom}`;
-        sel.add(opt);
+        const label = document.createElement('label');
+        const cb = document.createElement('input');
+        cb.type = 'checkbox';
+        cb.name = 'departments';
+        cb.value = d.code;
+        label.appendChild(cb);
+        label.append(` ${d.code} – ${d.nom}`);
+        checkboxContainer.appendChild(label);
       });
 
-      // Initialize Leaflet map
+      // Initialize map
       const map = L.map('map').setView([46.7, 2.5], 6);
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '© OpenStreetMap contributors'
@@ -177,7 +180,6 @@
       let editingId = null;
       let geojsonLayer;
 
-      // Load from Firestore
       async function loadClients() {
         const snapshot = await db.collection('clients').get();
         clients = snapshot.docs.map(doc => ({
@@ -188,7 +190,6 @@
         renderAll();
       }
 
-      // Create / Update in Firestore
       async function saveClient(record) {
         if (editingId) {
           await db.collection('clients').doc(editingId).set(record);
@@ -197,16 +198,17 @@
         } else {
           await db.collection('clients').add(record);
         }
+        // clear form
+        nameInput.value = '';
+        document.querySelectorAll('input[name="departments"]').forEach(cb => cb.checked = false);
         await loadClients();
       }
 
-      // Delete in Firestore
       async function removeClient(id) {
         await db.collection('clients').doc(id).delete();
         await loadClients();
       }
 
-      // Helpers
       function getClients(code) {
         return clients.filter(c => c.departments.includes(code)).map(c => c.name);
       }
@@ -218,7 +220,6 @@
              : 'white';
       }
 
-      // Update map with colors & tooltips
       function updateMap() {
         if (!geojsonLayer) return;
         geojsonLayer.eachLayer(layer => {
@@ -234,7 +235,6 @@
         });
       }
 
-      // Render sidebar clients table
       function renderSidebarClients() {
         tbodyCl.innerHTML = '';
         clients.forEach(c => {
@@ -250,7 +250,6 @@
         });
       }
 
-      // Render sidebar counts table
       function renderSidebarCounts() {
         tbodyCnt.innerHTML = '';
         departmentsList.forEach(d => {
@@ -261,14 +260,13 @@
         });
       }
 
-      // Render both sidebar and map
       function renderAll() {
         renderSidebarClients();
         renderSidebarCounts();
         updateMap();
       }
 
-      // Load GeoJSON then clients
+      // load GeoJSON then clients
       fetch('https://france-geojson.gregoiredavid.fr/repo/departements.geojson')
         .then(r => r.json())
         .then(data => {
@@ -278,14 +276,12 @@
           loadClients();
         });
 
-      // Button handlers
       addBtn.onclick = () => {
         const name = nameInput.value.trim();
-        const deps = Array.from(sel.selectedOptions).map(o => o.value);
+        const deps = Array.from(document.querySelectorAll('input[name="departments"]:checked'))
+                          .map(cb => cb.value);
         if (!name || !deps.length) return alert('Nom et départements requis');
         saveClient({ name, departments: deps });
-        nameInput.value = '';
-        sel.selectedIndex = -1;
       };
 
       exportBtn.onclick = () => {
@@ -295,19 +291,16 @@
         const blob = new Blob([csv], { type:'text/csv' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
-        a.href = url;
-        a.download = 'clients.csv';
-        a.click();
+        a.href = url; a.download = 'clients.csv'; a.click();
         URL.revokeObjectURL(url);
       };
 
-      // Expose for sidebar buttons
       window.deleteClient = async id => removeClient(id);
-      window.editClient   = id => {
+      window.editClient   = async id => {
         const c = clients.find(x => x.id === id);
         nameInput.value = c.name;
-        Array.from(sel.options).forEach(o => {
-          o.selected = c.departments.includes(o.value);
+        document.querySelectorAll('input[name="departments"]').forEach(cb => {
+          cb.checked = c.departments.includes(cb.value);
         });
         addBtn.textContent = 'Sauvegarder';
         editingId = id;
