@@ -16,15 +16,12 @@
     .controls > div { display: flex; flex-direction: column; gap: 0.5rem; }
     .controls .buttons { display: flex; gap: 0.5rem; }
     button { padding: 0.5rem 1rem; }
-    #clientsTable { border-collapse: collapse; width: 100%; margin: 0.5rem 0; }
-    #clientsTable th, #clientsTable td { border: 1px solid #ccc; padding: 0.5rem; text-align: left; }
-    #clientsTable th { background: #eee; }
-    .action-btn { margin-right: 0.5rem; }
     .sidebar { width: 350px; border-left: 1px solid #ccc; padding: 1rem; overflow-y: auto; }
     .sidebar h2 { margin-top: 0; }
     .sidebar-table { width: 100%; border-collapse: collapse; margin-bottom: 1rem; }
     .sidebar-table th, .sidebar-table td { border: 1px solid #ccc; padding: 0.25rem 0.5rem; text-align: left; }
     .sidebar-table th { background: #f0f0f0; }
+    .action-btn { margin-right: 0.5rem; }
   </style>
 </head>
 <body>
@@ -55,29 +52,23 @@
         </div>
       </div>
 
-      <div style="padding: 0 1rem; max-height: 200px; overflow-y: auto;">
-        <strong>Liste des clients</strong>
-        <table id="clientsTable">
-          <thead>
-            <tr><th>Client</th><th>Départements</th><th>Actions</th></tr>
-          </thead>
-          <tbody></tbody>
-        </table>
-      </div>
-
       <div id="map"></div>
     </div>
 
     <div class="sidebar">
       <h2>Clients enregistrés</h2>
       <table id="sidebarClientsTable" class="sidebar-table">
-        <thead><tr><th>Nom</th><th>Départements</th></tr></thead>
+        <thead>
+          <tr><th>Nom</th><th>Départements</th><th>Actions</th></tr>
+        </thead>
         <tbody></tbody>
       </table>
 
       <h2>Nb clients par département</h2>
       <table id="sidebarCountsTable" class="sidebar-table">
-        <thead><tr><th>Code</th><th>Nom</th><th>Nb</th></tr></thead>
+        <thead>
+          <tr><th>Code</th><th>Nom</th><th>Nb</th></tr>
+        </thead>
         <tbody></tbody>
       </table>
     </div>
@@ -127,7 +118,6 @@
       const nameInput = document.getElementById('clientName');
       const addBtn = document.getElementById('addClient');
       const exportBtn = document.getElementById('exportCsv');
-      const tbody = document.querySelector('#clientsTable tbody');
       const sidebarClientsTbody = document.querySelector('#sidebarClientsTable tbody');
       const sidebarCountsTbody = document.querySelector('#sidebarCountsTable tbody');
 
@@ -145,7 +135,7 @@
         attribution: '© OpenStreetMap contributors'
       }).addTo(map);
 
-      // Charger les clients depuis localStorage
+      // Charger les clients
       let clients = JSON.parse(localStorage.getItem('clients') || '[]');
       let editingIndex = -1;
       let geojsonLayer;
@@ -162,36 +152,30 @@
           renderAll();
         });
 
-      // Récupère les clients pour un code
       function getClients(code) {
         return clients.filter(c => c.departments.includes(code)).map(c => c.name);
       }
-      // Couleur selon nb clients
       function getColor(n) {
         return n===1?'green':n===2?'blue':n===3?'orange':n===4?'yellow':'white';
       }
-      // Sauvegarde localStorage
       function save() {
         localStorage.setItem('clients', JSON.stringify(clients));
       }
-      // Met à jour la carte & infobulles
       function updateMap() {
         if (!geojsonLayer) return;
         geojsonLayer.eachLayer(layer => {
           const code = layer.feature.properties.code;
           const list = getClients(code);
           layer.setStyle({ fillColor: getColor(list.length) });
-          // affiche infobulle seulement si pas de clients
           layer.unbindTooltip();
           if (list.length === 0) {
             layer.bindTooltip(layer.feature.properties.nom, {sticky:true});
           }
         });
       }
-      // Rendu du tableau principal
-      function renderTable() {
-        tbody.innerHTML = '';
-        clients.forEach((c,i) => {
+      function renderSidebarClients() {
+        sidebarClientsTbody.innerHTML = '';
+        clients.forEach((c, i) => {
           const tr = document.createElement('tr');
           tr.innerHTML = `
             <td>${c.name}</td>
@@ -200,19 +184,9 @@
               <button class="action-btn" onclick="editClient(${i})">Modifier</button>
               <button class="action-btn" onclick="deleteClient(${i})">Supprimer</button>
             </td>`;
-          tbody.appendChild(tr);
-        });
-      }
-      // Rendu sidebar clients
-      function renderSidebarClients() {
-        sidebarClientsTbody.innerHTML = '';
-        clients.forEach(c => {
-          const tr = document.createElement('tr');
-          tr.innerHTML = `<td>${c.name}</td><td>${c.departments.join(', ')}</td>`;
           sidebarClientsTbody.appendChild(tr);
         });
       }
-      // Rendu sidebar comptes
       function renderSidebarCounts() {
         sidebarCountsTbody.innerHTML = '';
         departmentsList.forEach(d => {
@@ -222,15 +196,12 @@
           sidebarCountsTbody.appendChild(tr);
         });
       }
-      // Rendu global
       function renderAll() {
-        renderTable();
         renderSidebarClients();
         renderSidebarCounts();
         updateMap();
       }
 
-      // Ajout / sauvegarde
       addBtn.onclick = () => {
         const name = nameInput.value.trim();
         const deps = Array.from(sel.selectedOptions).map(o=>o.value);
@@ -245,12 +216,11 @@
         nameInput.value=''; sel.selectedIndex=-1;
         save(); renderAll();
       };
-      // Export CSV
       exportBtn.onclick = () => {
         const header = ['Nom du client','Départements'].join(';');
         const rows = clients.map(c=>[c.name,c.departments.join(',')].join(';'));
         const csv = [header,...rows].join('\n');
-        const blob = new Blob([csv],{type:'text/csv;charset=utf-8;'});
+        const blob = new Blob([csv],{type:'text/csv'});
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href=url; a.download='clients.csv';
@@ -258,12 +228,10 @@
         document.body.removeChild(a); URL.revokeObjectURL(url);
       };
 
-      // Suppression / édition exposées globalement
       window.deleteClient = i => {
         clients.splice(i,1);
         if(editingIndex===i){
-          editingIndex=-1;
-          nameInput.value=''; sel.selectedIndex=-1; addBtn.textContent='Ajouter client';
+          editingIndex=-1; nameInput.value=''; sel.selectedIndex=-1; addBtn.textContent='Ajouter client';
         }
         save(); renderAll();
       };
